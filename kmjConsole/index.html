@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KMJ HELONIGA-1 Control Panel</title>
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Courier New", monospace;
+        }
+
+        body {
+            background-color: #1e1e1e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 20px;
+            background-color: #252525;
+            border-bottom: 2px solid red;
+            z-index: 1000;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ff5555;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-button {
+            background: none;
+            color: #ff5555;
+            border: 2px solid #ff5555;
+            padding: 5px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .header-button:hover {
+            background-color: #ff5555;
+            color: black;
+        }
+
+        /* Grid Layout */
+        .container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            padding: 10px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .phone-box {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: black;
+            border: 2px solid red;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .phone-box.active {
+            border-color: #ff0000;
+            /* Brighter Red for Active */
+            box-shadow: 0px 0px 10px #ff0000;
+        }
+
+        .vnc-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .overlay {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(255, 0, 0, 0.7);
+            padding: 3px 6px;
+            font-size: 14px;
+            border-radius: 3px;
+            color: black;
+            font-weight: bold;
+        }
+
+        /* Console Sidebar */
+        .console-sidebar {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            border-left: 2px solid red;
+            padding: 20px;
+            transition: right 0.3s ease-in-out;
+            z-index: 999;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .console-sidebar.show {
+            right: 0;
+        }
+
+        .console-title {
+            font-size: 24px;
+            color: #ff5555;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+        }
+
+        .network-diagram {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        .network-svg {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            max-width: 800px;
+            max-height: 600px;
+        }
+
+        .computer-node {
+            fill: none;
+            stroke: #ff5555;
+            stroke-width: 2;
+            filter: drop-shadow(0 0 5px #ff5555);
+        }
+
+        .phone-node {
+            fill: none;
+            stroke-width: 2;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+
+        .phone-node.online {
+            stroke: #00ff00;
+            color: #00ff00;
+        }
+
+        .phone-node.offline {
+            stroke: #ff5555;
+            color: #ff5555;
+        }
+
+        .connection-line {
+            stroke: #ff5555;
+            stroke-width: 1.5;
+            stroke-dasharray: 5, 5;
+            animation: dash 1s linear infinite;
+        }
+
+        .connection-line.online {
+            stroke: #00ff00;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 20;
+            }
+        }
+
+        .node-label {
+            font-size: 12px;
+            fill: currentColor;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-family: "Courier New", monospace;
+        }
+
+        .close-console {
+            background: red;
+            color: black;
+            font-weight: bold;
+            border: 2px solid red;
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+
+        .close-console:hover {
+            background: #ff5555;
+            color: black;
+        }
+
+        /* Worker View Styles */
+        .worker-view {
+            display: grid;
+            grid-template-columns: 1fr 200px 1fr;
+            height: calc(100vh - 60px);
+            width: 100%;
+            background: #1e1e1e;
+        }
+
+        .phone-section,
+        .x-section {
+            position: relative;
+            background: black;
+            border: 2px solid red;
+            margin: 10px;
+        }
+
+        .worker-phone-frame,
+        .x-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .control-bar {
+            background: #252525;
+            border-left: 2px solid red;
+            border-right: 2px solid red;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-title {
+            color: #ff5555;
+            font-size: 18px;
+            text-align: center;
+            border-bottom: 1px solid red;
+            padding-bottom: 10px;
+        }
+
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-button {
+            background: none;
+            color: #ff5555;
+            border: 2px solid #ff5555;
+            padding: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: "Courier New", monospace;
+        }
+
+        .control-button:hover {
+            background-color: #ff5555;
+            color: black;
+        }
+
+        /* Phone Buttons */
+        .phone-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .phone-buttons::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .phone-buttons::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .phone-buttons::-webkit-scrollbar-thumb {
+            background: #ff5555;
+            border-radius: 5px;
+        }
+
+        .phone-button {
+            font-size: 12px;
+            padding: 5px;
+        }
+
+        /* X Embed Container */
+        .x-embed-container {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .x-embed-container iframe {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Notepad Styles */
+        .notepad-container {
+            height: 100%;
+            width: 100%;
+            padding: 10px;
+            background: black;
+        }
+
+        .worker-notes {
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            color: #ff5555;
+            border: 2px solid #ff5555;
+            padding: 15px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+
+        .worker-notes::placeholder {
+            color: #ff5555;
+            opacity: 0.5;
+        }
+
+        .worker-notes:focus {
+            border-color: #ff0000;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+
+        /* Tasklist Styles */
+        .tasklist-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            color: #ff5555;
+            font-family: "Courier New", monospace;
+        }
+
+        .task-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ff5555;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .task-item.completed {
+            border-color: #00ff00;
+        }
+
+        .task-item.completed .task-title {
+            text-decoration: line-through;
+            color: #00ff00;
+        }
+
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ff5555;
+            background: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .task-checkbox.checked {
+            background: #00ff00;
+            border-color: #00ff00;
+        }
+
+        .task-checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            color: black;
+            font-weight: bold;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .task-title {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .task-subtasks {
+            margin-left: 30px;
+            display: none;
+        }
+
+        .task-subtasks.show {
+            display: block;
+        }
+
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+            padding: 5px;
+        }
+
+        .subtask-item.completed {
+            color: #00ff00;
+            text-decoration: line-through;
+        }
+
+        .subtask-checkbox {
+            width: 15px;
+            height: 15px;
+            border: 2px solid #ff5555;
+            background: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .subtask-checkbox.checked {
+            background: #00ff00;
+            border-color: #00ff00;
+        }
+
+        .subtask-checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            color: black;
+            font-weight: bold;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+        }
+
+        /* Loading Page Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: #ff5555;
+            font-family: "Courier New", monospace;
+        }
+
+        .loading-title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .loading-status {
+            font-size: 24px;
+            margin-top: 20px;
+            color: #ff5555;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #ff5555;
+            border-top: 5px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 20px;
+        }
+
+        @keyframes pulse {
+            0% {
+                text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+            }
+
+            50% {
+                text-shadow: 0 0 20px rgba(255, 85, 85, 0.8);
+            }
+
+            100% {
+                text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .login-container {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+        }
+
+        .login-input {
+            background: #1a1a1a;
+            border: 1px solid #ff5555;
+            color: #ff5555;
+            padding: 5px 10px;
+            font-family: "Courier New", monospace;
+            width: 150px;
+        }
+
+        .login-button {
+            background: #1a1a1a;
+            border: 1px solid #ff5555;
+            color: #ff5555;
+            padding: 5px 15px;
+            font-family: "Courier New", monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .login-button:hover {
+            background: #ff5555;
+            color: #1a1a1a;
+        }
+
+        .login-button.logged-in {
+            background: #00ff00;
+            border-color: #00ff00;
+            color: #1a1a1a;
+        }
+
+        .login-form {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .login-title {
+            color: #ff5555;
+            font-size: 20px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+        }
+
+        .login-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .login-input {
+            background: #1a1a1a;
+            border: 2px solid #ff5555;
+            color: #ff5555;
+            padding: 10px 15px;
+            font-family: "Courier New", monospace;
+            width: 250px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .login-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+        }
+
+        .login-button {
+            background: #1a1a1a;
+            border: 2px solid #ff5555;
+            color: #ff5555;
+            padding: 10px 30px;
+            font-family: "Courier New", monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            width: 250px;
+        }
+
+        .login-button:hover {
+            background: #ff5555;
+            color: #1a1a1a;
+        }
+
+        .login-button.logged-in {
+            background: #00ff00;
+            border-color: #00ff00;
+            color: #1a1a1a;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-title">KMJ-HELONIGA-1</div>
+        <div class="loading-status">Connecting to KMJ VPN...</div>
+        <div class="loading-spinner"></div>
+        <div class="login-form" style="display: none;">
+            <div class="login-title">Worker Authentication Required</div>
+            <div class="login-input-container">
+                <input type="text" id="worker-id" placeholder="Enter Worker ID" class="login-input">
+                <button id="login-button" class="login-button" onclick="handleLogin()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">KMJ HELONIGA-1 Control Panel</div>
+        <div class="button-container">
+            <button class="header-button" onclick="toggleConsole()">Console</button>
+            <button class="header-button" onclick="toggleTasklist()">Tasklist</button>
+            <button class="header-button" onclick="toggleView()">Worker View</button>
+            <button id="logout-button" class="header-button" onclick="handleLogout()"
+                style="display: none;">Logout</button>
+        </div>
+    </div>
+
+    <!-- Worker View -->
+    <div id="worker-view" class="worker-view" style="display: none;">
+        <div class="phone-section">
+            <iframe id="worker-phone" class="worker-phone-frame"></iframe>
+        </div>
+        <div class="control-bar">
+            <div class="control-title">[ Control Panel ]</div>
+            <div class="control-buttons">
+                <button class="control-button">Refresh</button>
+                <div class="phone-buttons">
+                    <button class="control-button phone-button">Phone 1</button>
+                    <button class="control-button phone-button">Phone 2</button>
+                    <button class="control-button phone-button">Phone 3</button>
+                    <button class="control-button phone-button">Phone 4</button>
+                    <button class="control-button phone-button">Phone 5</button>
+                    <button class="control-button phone-button">Phone 6</button>
+                    <button class="control-button phone-button">Phone 7</button>
+                    <button class="control-button phone-button">Phone 8</button>
+                    <button class="control-button phone-button">Phone 9</button>
+                    <button class="control-button phone-button">Phone 10</button>
+                </div>
+            </div>
+        </div>
+        <div class="x-section">
+            <div class="notepad-container">
+                <textarea id="worker-notes" class="worker-notes" placeholder="Enter your notes here..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Console Sidebar -->
+    <div id="console-sidebar" class="console-sidebar">
+        <div class="console-title">[ Network Status Console ]</div>
+        <div class="network-diagram">
+            <svg class="network-svg" id="network-svg">
+                <!-- SVG content will be dynamically generated -->
+            </svg>
+        </div>
+        <button class="close-console" onclick="toggleConsole()">Close Console</button>
+    </div>
+
+    <!-- Add this after the console-sidebar div -->
+    <div id="tasklist-sidebar" class="console-sidebar">
+        <div class="console-title">[ Task Management Console ]</div>
+        <div class="tasklist-container">
+            <div id="task-list"></div>
+        </div>
+        <button class="close-console" onclick="toggleTasklist()">Close Tasklist</button>
+    </div>
+
+    <!-- Grid Container -->
+    <div class="container" id="phone-container">
+        <!-- Phones will be dynamically inserted here -->
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
